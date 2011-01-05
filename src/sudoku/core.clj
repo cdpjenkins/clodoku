@@ -21,6 +21,22 @@
 (defn in? [val l]
   (some #( = % val) l))
 
+(defn all [p l]
+  "Returns true iff p returns true for all l"
+  (if (empty? l)
+    true
+    (if (p (first l))
+      (all p (rest l))
+      false)))
+	   
+
+
+;;
+
+(def all-cells (for [y (range 9)
+		     x (range 9)]
+		 [x y]))
+
 ;;
 
 ;  A region is either a row or a column or a 3x3 box
@@ -140,7 +156,25 @@
 			(peers pos))]
       board)))
 
-(def eg-board
+(defn is-completed [board]
+  (all identity (for [pos all-cells]
+	    (= 1 (count (board pos))))))
+
+(defn depth-first-search [board]
+  (if (nil? board)
+    nil
+    (if (is-completed board)
+      board
+      (let [poses (sort (comparator #(< (count (board %1))
+					(count (board %2))))
+			(filter #(> (count (board %)) 1) all-cells))]
+	(println poses)
+	(println (first poses))
+	board))))
+
+;; TODO YOU ARE HERE.. finish implementing search
+
+(def eg-board1
      ["53__7____"
       "6__195___"
       "_98____6_"
@@ -150,6 +184,17 @@
       "_6____28_"
       "___419__5"
       "____8__79"])
+
+(def eg-board6
+     ["_____8__6"
+      "9_17_53_4"
+      "_____4_1_"
+      "1__94__5_"
+      "49__5__67"
+      "_2__71__3"
+      "_3_4_____"
+      "2_53_97_1"
+      "7__5_____"])
 
 (defn cell-at [board coords]
   (board coords))
