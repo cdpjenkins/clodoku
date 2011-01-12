@@ -2,8 +2,31 @@
   (:use [clojure.set]))
 
 (declare set-cell-value)
+(declare search-at-cell)
+
+;;
+;; A sudoku board is a 9x9 grid of cells.
+;; Each cell is a set of possible integer values for that cell. If the set
+;; has just one member then the value of that cell is known. If the set has
+;; zero members then we have a contradiction and the board is invalid.
+;; In addition, the board is divided into 9 rows, 9 columns and 9 boxes.
+;; Each of these, we call a region. Therefore, each cell is a member of
+;; precisely three regions (one row, one column and one box). A cell is a
+;; peer of another cell if those two cells are members of the same region.
+;; Two cells that are peers cannot have the same value.
+;;
+;; In Clojure, the board is represented as a hashmap from [x y] coord pairs to
+;; a set of integers.
+;;
 
 ;; Util fns
+(defn first-non-nil [l]
+  (if (empty? l)
+    nil
+    (if (nil? (first l))
+      (first-non-nil (rest l))
+      (first l))))
+
 (defn sane-hash-map [key-val-pairs]
   (reduce (fn [the-map [key val]]
 	    (assoc the-map key val))
@@ -28,62 +51,51 @@
     (if (p (first l))
       (all p (rest l))
       false)))
-	   
 
-
-;;
-
+;; List of all positions on the board from [0 0] to [8 8]
 (def all-cells (for [y (range 9)
 		     x (range 9)]
 		 [x y]))
 
-;;
+(defn value-at [board pos]
+  "The value of the cell at pos, represented as a char, or _ if the value
+   is not known"
+  (let [cell (board pos)]
+    (if (not= (count cell) 1)
+      \_
+      (char (+ (first cell) 48)))))
 
-;  A region is either a row or a column or a 3x3 box
-(def rows
-  (for [row (range 9)]
-    (for [x (range 9)]
-      [x row])))
+(def regions
+  (let [rows (for [row (range 9)]
+	       (for [x (range 9)]
+		 [x row]))
+	cols (for [col (range 9)]
+	       (for [y (range 9)]
+		 [col y]))
+	boxes (for [box-num (range 9)]
+		(let [top-x (* 3 (mod box-num 3))
+		      top-y (* 3 (quot box-num 3))]
+		  (for [y (range top-y (+ top-y 3))
+			x (range top-x (+ top-x 3))]
+		    [x y])))]
+     (concat rows cols boxes)))
 
-(def cols
-  (for [col (range 9)]
-    (for [y (range 9)]
-      [col y])))
-
-(defn get-box-cells [box]
-  (let [top-x (* 3 (mod box 3))
-	top-y (* 3 (quot box 3))]
-    (for [y (range top-y (+ top-y 3))
-	  x (range top-x (+ top-x 3))]
-      [x y])))
-(def boxes
-  (for [box-num (range 9)]
-    (get-box-cells box-num)))
-(def regions (concat rows cols boxes))
-
-; We need a mapping from cells to regions
-(defn regions-for-cell [pos]
-  (for [region regions :when (some #( = % pos) region)]
-    region))
-
+;; Mapping from cells to regions
 (def cell-to-regions
   (sane-hash-map
-   (for [x (range 9)
-	 y (range 9)]
-     [[x y] (regions-for-cell [x y])])))
+   (for [pos all-cells]
+     [pos (for [region regions :when (some #( = % pos) region)]
+	    region)])))
 
-(defn peers-for-cell [pos]
-  (let [regions (cell-to-regions pos)]
-    (difference (set (apply union regions))
-		(set [pos]))))
-
+;; Mapping from cells to the peers of that cell
 (def peers
   (sane-hash-map
-    (for [x (range 9)
-	  y (range 9)]
-      [ [x y] (peers-for-cell [x y])])))
+    (for [pos all-cells]
+      [ pos (let [regions (cell-to-regions pos)]
+	      (difference (set (apply union regions))
+			  (set [pos])))])))
 
-;; the board is a map from coord-pairs to Cells
+;; the board is a map from coord-pairs to cells
 (defn parse-board [cell-char-array]
   "Takes an array of strings and outputs a seq of 3-tuples [x y value] for
    all positions that already have a value"
@@ -108,103 +120,95 @@
 	    (parse-board cell-char-array))))
 
 (defn scan-region-for-single-choice [board region val]
-  (let [cells-with-val (for [pos region :when (contains? (board pos) val)]
-			 pos)]
-    (if (= (count cells-with-val) 1)
-      (set-cell-value board (first cells-with-val) val)
-      board)))
+  (if (nil? board)
+    nil
+    (let [cells-with-val (for [pos region :when (contains? (board pos) val)]
+			   pos)]
+      (if (= (count cells-with-val) 1)
+	(set-cell-value board (first cells-with-val) val)
+	board))))
 
 (defn eliminate [board pos val]
   "Eliminate a the possibility specified by val from the cell specified by
-   pos. Return the resulting board."
-;;  (println "eliminate" board pos val)
-  (if (not (contains? (board pos) val))
-    board
-    (let [new-possibles (difference (board pos) #{val})
-      ;;      (println "new-possibles" new-possibles)
-	  board (condp = (count new-possibles)
-		    0 nil    ; contradiction
-		    1 (set-cell-value (assoc board pos new-possibles)
-				      pos
-				      (first new-possibles))
-		    (assoc board pos new-possibles))
-
-	  ;; find any regions that now only have one possible cell that could
-	  ;; contain val
-	  board (reduce (fn [board region]
-			  (scan-region-for-single-choice board region val))
-			board
-			(regions-for-cell pos))]
-      board)))
+   pos. Return the resulting board. If this causes the cell to only have
+   one possibility left then we the the cell's value to that single possibility.
+   If this leaves a region with only one cell that could contain the value that
+   we just eliminated then we set that cell to that value."
+  (if (nil? board)
+    nil
+    (if (not (contains? (board pos) val))
+      board
+      (let [new-possibles (difference (board pos) #{val})
+	    board (condp = (count new-possibles)
+		      0 nil    ; contradiction
+		      1 (set-cell-value (assoc board pos new-possibles)
+					pos
+					(first new-possibles))
+		      (assoc board pos new-possibles))
+	    
+	    ;; find any regions that now only have one possible cell that could
+	    ;; contain val
+	    board (reduce (fn [board region]
+			    (scan-region-for-single-choice board region val))
+			  board
+			  (cell-to-regions pos))]
+	board))))
 
 (defn set-cell-value [board pos val]
-  ;;  (println "set-cell-value" board pos val)
-  (if (and (= (count (board pos)) 1)
-	   (not= (first (board pos)) val))
-    nil ; contradiction
-    (let [other-possibles (vec (difference (board pos)
-					   #{val}))
-	  ;; eliminate all other possibles from this cell
-	  board (reduce (fn [b possible-to-eliminate]
-			  (eliminate b pos possible-to-eliminate))
-			board
-			other-possibles)
-	  ;; eliminate this val from all peers
-	  board (reduce (fn [board peer]
-			  (eliminate board peer val))
-			board
-			(peers pos))]
-      board)))
+  "Set the cell specified by pos to the value specified by val. Eliminate that
+   value from all peers of the cell."
+  (if (nil? board)
+    nil
+    (if (and (= (count (board pos)) 1)
+	     (not= (first (board pos)) val))
+      nil ; contradiction
+      (let [other-possibles (vec (difference (board pos)
+					     #{val}))
+	    ;; eliminate all other possibles from this cell
+	    board (reduce (fn [b possible-to-eliminate]
+			    (eliminate b pos possible-to-eliminate))
+			  board
+			  other-possibles)
+	    ;; eliminate this val from all peers
+	    board (reduce (fn [board peer]
+			    (eliminate board peer val))
+			  board
+			  (peers pos))]
+	board))))
 
 (defn is-completed [board]
+  "True iff all cells have precisely one possibility ie all cells have known
+   values"
   (all identity (for [pos all-cells]
 	    (= 1 (count (board pos))))))
 
 (defn depth-first-search [board]
+  "Perform a depth first search, returning the first complete (and valid!)
+   board found"
   (if (nil? board)
     nil
     (if (is-completed board)
       board
-      (let [poses (sort (comparator #(< (count (board %1))
-					(count (board %2))))
-			(filter #(> (count (board %)) 1) all-cells))]
-	(println poses)
-	(println (first poses))
-	board))))
+      (let [pos (first (sort (comparator #(< (count (board %1))
+					     (count (board %2))))
+			     (filter #(> (count (board %)) 1) all-cells)))
+	    possibilities (board pos)
+	    result (first-non-nil (for [poss possibilities]
+				    (set-cell-value board pos poss)))]
+	(if (not (nil? result))
+	  (depth-first-search result)
+	  nil)))))			 
 
-;; TODO YOU ARE HERE.. finish implementing search
-
-(def eg-board1
-     ["53__7____"
-      "6__195___"
-      "_98____6_"
-      "8___6___3"
-      "4__8_3__1"
-      "7___2___6"
-      "_6____28_"
-      "___419__5"
-      "____8__79"])
-
-(def eg-board6
-     ["_____8__6"
-      "9_17_53_4"
-      "_____4_1_"
-      "1__94__5_"
-      "49__5__67"
-      "_2__71__3"
-      "_3_4_____"
-      "2_53_97_1"
-      "7__5_____"])
-
-(defn cell-at [board coords]
-  (board coords))
+(defn board-to-vector [board]
+  "Returns a 2d vector representing the board in row-major order. Known cell
+   values are represented as a char of that value. Unkown cell values are
+   represented a _"
+  (vec
+    (for [y (range 9)]
+      (apply str (for [x (range 9)]
+		   (value-at board [x y]))))))
 
 (defn print-board [board]
-  (doseq [y (range 9)]
-    (doseq [x (range 9)]
-      (let [cell (board [x y])]
-	    
-	(print (if (not= (count cell) 1)
-		 "_"
-		 (first cell)))))
-    (println)))
+  "Print a representation of the known values of the board to stdout"
+  (doseq [row (board-to-vector board)]
+    (println row)))
