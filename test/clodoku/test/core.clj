@@ -1,5 +1,5 @@
-(ns sudoku.test.core
-  (:use [sudoku.core] :reload)
+(ns clodoku.test.core
+  (:use [clodoku.core] :reload)
   (:use [clojure.test]))
 
 ;; A few basic tests. Could do with loads more.

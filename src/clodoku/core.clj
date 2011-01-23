@@ -1,4 +1,4 @@
-(ns sudoku.core
+(ns clodoku.core
   (:use [clojure.set])
   (:gen-class))
 
