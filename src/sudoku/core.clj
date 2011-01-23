@@ -1,8 +1,23 @@
- (ns sudoku.core
-  (:use [clojure.set]))
+(ns sudoku.core
+  (:use [clojure.set])
+  (:gen-class))
+
+(import
+ '(java.io FileReader BufferedReader))
+
 
 (declare set-cell-value)
 (declare search-at-cell)
+
+;; TODOs
+;;
+;; - solve Sudokus with multiple valid solutions
+;; - complete rename to clodoku
+;; - add capability to generate puzzles
+;; - bit more error checking in -main function
+;; - deal more intelligently with a board that takes too long to search.
+;;   Perhaps iterative deepening search would be smarter or some arbitrary
+;;   limit on depth that stops us taking forever
 
 ;;
 ;; A sudoku board is a 9x9 grid of cells.
@@ -51,6 +66,13 @@
     (if (p (first l))
       (all p (rest l))
       false)))
+
+(defn readlines [^BufferedReader b]
+  "Return a list of the lines read from a BufferedReader"
+  (let [line (.readLine b)]
+    (if (nil? line)
+      nil
+      (cons line (readlines b)))))
 
 ;; List of all positions on the board from [0 0] to [8 8]
 (def all-cells (for [y (range 9)
@@ -212,3 +234,8 @@
   "Print a representation of the known values of the board to stdout"
   (doseq [row (board-to-vector board)]
     (println row)))
+
+(defn -main [filename]
+  (let [reader (BufferedReader. (FileReader. filename))
+	solution (depth-first-search (make-board (readlines reader)))]
+    (print-board solution)))
