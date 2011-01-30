@@ -1,17 +1,13 @@
-# sudoku
+# clodoku
 
-FIXME: write description
+Sudoku solver written in Clojure
 
 ## Usage
 
-FIXME: write
-
-## Installation
-
-FIXME: write
+java -jar clodoku-0.0.1-standalone.jar <sudoku-board-filename>
 
 ## License
 
-Copyright (C) 2010 FIXME
+Copyright (C) 2010, 2011 Chris Jenkins
 
 Distributed under the Eclipse Public License, the same as Clojure.
