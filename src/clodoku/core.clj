@@ -12,7 +12,6 @@
 ;; TODOs
 ;;
 ;; - solve Sudokus with multiple valid solutions
-;; - complete rename to clodoku
 ;; - add capability to generate puzzles
 ;; - bit more error checking in -main function
 ;; - deal more intelligently with a board that takes too long to search.
@@ -153,7 +152,7 @@
 (defn eliminate [board pos val]
   "Eliminate a the possibility specified by val from the cell specified by
    pos. Return the resulting board. If this causes the cell to only have
-   one possibility left then we the the cell's value to that single possibility.
+   one possibility left then we set the cell's value to that single possibility.
    If this leaves a region with only one cell that could contain the value that
    we just eliminated then we set that cell to that value."
   (if (nil? board)
@@ -239,3 +238,5 @@
   (let [reader (BufferedReader. (FileReader. filename))
 	solution (depth-first-search (make-board (readlines reader)))]
     (print-board solution)))
+
+
