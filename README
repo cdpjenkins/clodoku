@@ -1,6 +1,9 @@
 # clodoku
 
-Sudoku solver written in Clojure
+Sudoku solver written in Clojure.
+
+I'm hoping to turn this into a general purpose library for solving and
+generating sudoku puzzles and otherwise doing cool stuff.
 
 ## Usage
 
