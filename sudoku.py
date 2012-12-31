@@ -166,10 +166,17 @@ def depth_first_search(board):
 #    print results
     return results
 
+def do_it():
+    b = make_board(open("board8.txt"))
+    b = depth_first_search(b)
+    print_board(b)[0]
+    return b
+
+
 def time_me_do():
     import time
     start = time.clock()
-    b = make_board(open("board6.txt"))
+    b = make_board(open("board7.txt"))
     b = depth_first_search(b)
     end = time.clock()
     print end - start
