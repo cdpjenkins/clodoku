@@ -166,7 +166,7 @@
 					pos
 					(first new-possibles))
 		      (assoc board pos new-possibles))
-	    
+
 	    ;; find any regions that now only have one possible cell that could
 	    ;; contain val
 	    board (reduce (fn [board region]
@@ -215,10 +215,10 @@
 			     (filter #(> (count (board %)) 1) all-cells)))
 	    possibilities (board pos)
 	    result (first-non-nil (for [poss possibilities]
-				    (set-cell-value board pos poss)))]
+                                     (depth-first-search (set-cell-value board pos poss))))]
 	(if (not (nil? result))
 	  (depth-first-search result)
-	  nil)))))			 
+	  nil)))))
 
 (defn board-to-vector [board]
   "Returns a 2d vector representing the board in row-major order. Known cell
@@ -238,5 +238,3 @@
   (let [reader (BufferedReader. (FileReader. filename))
 	solution (depth-first-search (make-board (readlines reader)))]
     (print-board solution)))
-
-
